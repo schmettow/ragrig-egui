@@ -1,0 +1,14 @@
+[package]
+name = "egui_chat"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+description = "Reusable chat and agent-panel widgets for egui"
+license = "MIT"
+repository = "https://github.com/schmettow/egui_chat"
+readme = "README.md"
+keywords = ["egui", "chat", "widget", "gui", "agent"]
+categories = ["gui"]
+
+[dependencies]
+egui = "0.34"
