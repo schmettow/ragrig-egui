@@ -139,6 +139,7 @@ pub struct ChatViewOutput {
 pub struct ChatView<'a> {
     messages: &'a [ChatMessage],
     empty_text: Option<&'a str>,
+    markdown: bool,
 }
 
 impl<'a> ChatView<'a> {
@@ -147,12 +148,19 @@ impl<'a> ChatView<'a> {
         Self {
             messages,
             empty_text: None,
+            markdown: false,
         }
     }
 
     /// Text shown while the transcript is empty.
     pub fn empty_text(mut self, text: &'a str) -> Self {
         self.empty_text = Some(text);
+        self
+    }
+
+    /// Render assistant messages as light Markdown (feature `markdown`).
+    pub fn markdown(mut self, markdown: bool) -> Self {
+        self.markdown = markdown;
         self
     }
 
@@ -171,7 +179,7 @@ impl<'a> ChatView<'a> {
                     return;
                 }
                 for (index, message) in self.messages.iter().enumerate() {
-                    if message_bubble(ui, message) {
+                    if message_bubble(ui, message, self.markdown) {
                         output.copied = Some(index);
                     }
                     ui.add_space(4.0);
@@ -182,7 +190,7 @@ impl<'a> ChatView<'a> {
 }
 
 /// Draw one message bubble; returns `true` when the user copied it.
-fn message_bubble(ui: &mut Ui, message: &ChatMessage) -> bool {
+fn message_bubble(ui: &mut Ui, message: &ChatMessage, rich_markdown: bool) -> bool {
     let mut copied = false;
     let align = match message.role {
         ChatRole::User => egui::Align::Max,
@@ -215,7 +223,8 @@ fn message_bubble(ui: &mut Ui, message: &ChatMessage) -> bool {
             if message.state == MessageState::Streaming {
                 text.push('\u{258C}');
             }
-            ui.add(egui::Label::new(RichText::new(text).color(text_color)).selectable(true));
+            let rich = rich_markdown && message.role == ChatRole::Assistant;
+            render_message_text(ui, &text, text_color, rich);
             if let Some(meta) = &message.meta {
                 let summary = meta.summary();
                 if !summary.is_empty() {
@@ -243,6 +252,19 @@ fn bubble_fill(ui: &Ui, message: &ChatMessage) -> Color32 {
         ChatRole::Assistant => visuals.faint_bg_color,
         ChatRole::System => visuals.faint_bg_color,
     }
+}
+
+/// Plain text by default; parsed Markdown for assistant bubbles when the
+/// `markdown` feature is enabled and requested.
+fn render_message_text(ui: &mut Ui, text: &str, color: Color32, rich: bool) {
+    #[cfg(feature = "markdown")]
+    if rich {
+        crate::markdown::render(ui, &crate::markdown::parse(text));
+        return;
+    }
+    #[cfg(not(feature = "markdown"))]
+    let _ = rich;
+    ui.add(egui::Label::new(RichText::new(text).color(color)).selectable(true));
 }
 
 #[cfg(test)]
@@ -305,6 +327,18 @@ mod tests {
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
             let output = ChatView::new(&messages).show(ui);
             assert_eq!(output.copied, None);
+        });
+    }
+
+    #[test]
+    fn chat_view_renders_with_markdown_enabled() {
+        let messages = vec![
+            ChatMessage::user("**raw user text**"),
+            ChatMessage::assistant("# Title\n\n- item\n\n```rust\nlet x = 1;\n```"),
+        ];
+        let ctx = egui::Context::default();
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ChatView::new(&messages).markdown(true).show(ui);
         });
     }
 

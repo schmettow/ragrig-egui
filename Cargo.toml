@@ -1,6 +1,6 @@
 [package]
 name = "egui_chat"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.92"
 description = "Reusable chat and agent-panel widgets for egui"
@@ -10,5 +10,11 @@ readme = "README.md"
 keywords = ["egui", "chat", "widget", "gui", "agent"]
 categories = ["gui"]
 
+[features]
+default = ["markdown"]
+# Light Markdown rendering for assistant messages (pulldown-cmark).
+markdown = ["dep:pulldown-cmark"]
+
 [dependencies]
 egui = "0.34"
+pulldown-cmark = { version = "0.13", default-features = false, optional = true }

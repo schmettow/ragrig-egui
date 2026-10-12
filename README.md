@@ -17,6 +17,7 @@ writing assistant — but it knows nothing about LLMs or RAG.
 | `chat_view::ChatView` | Scrollable transcript of `ChatMessage`s: user/assistant/system bubbles, streaming state, error state, metadata footer (`12 chunks · 3 sources · 8.2 s`) |
 | `composer::Composer` | Multiline input with **Return = newline**, **Ctrl/⌘+Return = submit**, send/stop buttons |
 | `agent_bar::AgentBar` | One icon per agent component with status dots (grey/green/pulsing/red) and a slide-up menu drawn by the host |
+| `markdown` (feature, default) | Light Markdown rendering for assistant bubbles: emphasis, headings, lists, inline/fenced code, quotes, links |
 
 ## Quick start
 
@@ -40,7 +41,10 @@ fn agent_pane(
     ];
     SectionDock::new("agent_dock", DockSide::Right, 360.0)
         .section(agent_section, |ui| {
-            ChatView::new(messages).empty_text("Ask your library").show(ui);
+            ChatView::new(messages)
+                .empty_text("Ask your library")
+                .markdown(true)
+                .show(ui);
             let out = Composer::new(input).show(ui);
             if out.submitted {
                 // forward `input` to your worker, then clear it
@@ -70,14 +74,16 @@ fn agent_pane(
 
 ## Roadmap
 
-- **0.1** (current) — dock, chat view, composer, agent bar; streaming and
-  error message states; metadata footers; status dot semantics.
-- **0.2** — rich text in assistant bubbles (light Markdown: emphasis, lists,
-  inline/fenced code) plus message actions (copy feedback, retry, delete).
-- **0.3** — draggable splitter between dock sections; menu builder helpers
-  (setting rows: text field, slider, combo) to reduce host boilerplate.
+- **0.1** — dock, chat view, composer, agent bar; streaming and error message
+  states; metadata footers; status dot semantics.
+- **0.2** (current) — light Markdown in assistant bubbles (emphasis, headings,
+  lists, inline/fenced code, quotes, links with targets) via `pulldown-cmark`,
+  behind the default `markdown` feature; streaming-safe (partial Markdown
+  renders without panicking).
+- **0.3** — message actions (copy feedback, retry, delete), clickable links,
+  draggable splitter between dock sections, setting-row helpers.
 - **0.4** — tabbed dock mode for hosts that need more than two panes; theme
-  presets.
+  presets; publish to crates.io.
 
 ## Compatibility
 

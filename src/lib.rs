@@ -8,6 +8,7 @@
 //! |---|---|---|
 //! | [`dock::SectionDock`] | [`dock`] | Side panel with stacked, collapsible sections |
 //! | [`chat_view::ChatView`] | [`chat_view`] | Scrollable transcript of chat messages |
+//! | [`markdown`] (feature `markdown`) | [`markdown`] | Light Markdown rendering for assistant bubbles |
 //! | [`composer::Composer`] | [`composer`] | Multiline input: Return = newline, Ctrl+Return = submit |
 //! | [`agent_bar::AgentBar`] | [`agent_bar`] | One icon per agent component, with status dots and slide-up menus |
 //!
@@ -46,3 +47,5 @@ pub mod agent_bar;
 pub mod chat_view;
 pub mod composer;
 pub mod dock;
+#[cfg(feature = "markdown")]
+pub mod markdown;
