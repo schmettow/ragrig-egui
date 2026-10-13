@@ -12,6 +12,15 @@
 
 use egui::{Key, Modifiers, RichText, Ui};
 
+/// The input grows with its content up to this many text rows, then scrolls
+/// internally.
+///
+/// A bounded composer is what keeps a multi-line prompt from pushing the
+/// host's layout around: the field can never demand more than
+/// [`Composer::max_input_height`], so a host can reserve that much and keep
+/// everything below it visible.
+pub const MAX_INPUT_ROWS: usize = 6;
+
 /// What the user did in the composer this frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ComposerOutput {
@@ -105,6 +114,16 @@ impl<'a> Composer<'a> {
         self
     }
 
+    /// The height the input area never exceeds (see [`MAX_INPUT_ROWS`]).
+    ///
+    /// Hosts lay out “transcript above, composer below” in immediate mode,
+    /// where a widget's height is only known after it is drawn; reserving
+    /// this bound (or the previous frame's measured height) keeps a tall
+    /// prompt from pushing the rest of the panel off-screen.
+    pub fn max_input_height(ui: &Ui) -> f32 {
+        input_height(ui, MAX_INPUT_ROWS)
+    }
+
     /// Render the composer into `ui`.
     pub fn show(self, ui: &mut Ui) -> ComposerOutput {
         // Consume Ctrl/Cmd+Return *before* the text field sees it, so it
@@ -113,12 +132,29 @@ impl<'a> Composer<'a> {
 
         let mut output = ComposerOutput::default();
         ui.add_enabled_ui(self.enabled, |ui| {
-            ui.add(
-                egui::TextEdit::multiline(self.text)
-                    .id(Self::input_id())
-                    .desired_rows(self.rows)
-                    .desired_width(f32::INFINITY)
-                    .hint_text(self.placeholder),
+            // The field keeps an *exact* height derived from the line count
+            // (capped at [`MAX_INPUT_ROWS`]; longer text scrolls inside): a
+            // content-sized editor would make the host's layout depend on the
+            // previous frame, and a multi-line prompt would push everything
+            // below it out of the panel.
+            let rows = self.text.lines().count().clamp(1, MAX_INPUT_ROWS);
+            ui.allocate_ui_with_layout(
+                egui::vec2(ui.available_width(), input_height(ui, rows)),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt("egui_chat::composer::input_scroll")
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            ui.add(
+                                egui::TextEdit::multiline(self.text)
+                                    .id(Self::input_id())
+                                    .desired_rows(rows)
+                                    .desired_width(f32::INFINITY)
+                                    .hint_text(self.placeholder),
+                            );
+                        });
+                },
             );
             ui.horizontal(|ui| {
                 if self.busy {
@@ -145,6 +181,30 @@ impl<'a> Composer<'a> {
         }
         output
     }
+}
+
+/// Height the input field needs for `rows` text rows (bounded by
+/// [`MAX_INPUT_ROWS`]).
+///
+/// This is exact: [`Composer::show`] sizes the field with it, so hosts can
+/// reserve the space before drawing anything.
+pub fn input_height(ui: &Ui, rows: usize) -> f32 {
+    const FIELD_MARGIN: f32 = 8.0;
+    ui.text_style_height(&egui::TextStyle::Body) * rows.clamp(1, MAX_INPUT_ROWS) as f32
+        + FIELD_MARGIN
+}
+
+/// Height a composer needs at most: the capped input plus its button row.
+///
+/// Hosts that anchor the composer at the bottom of a panel use this to size
+/// the block the composer can never exceed.
+pub fn max_composer_height(ui: &Ui) -> f32 {
+    input_height(ui, MAX_INPUT_ROWS) + composer_chrome(ui)
+}
+
+/// The Send/Stop row plus the spacing around it.
+fn composer_chrome(ui: &Ui) -> f32 {
+    ui.spacing().interact_size.y + 2.0 * ui.spacing().item_spacing.y
 }
 
 #[cfg(test)]
@@ -217,5 +277,46 @@ mod tests {
         });
         assert!(!output.submitted);
         assert!(!output.cancelled);
+    }
+
+    #[test]
+    fn a_long_prompt_does_not_grow_the_composer_past_its_cap() {
+        // Regression: an unbounded input used to push the host's agent bar and
+        // whatever sits below it out of the panel.
+        let ctx = egui::Context::default();
+        let mut text = "a long prompt line\n".repeat(40);
+        let mut height = 0.0f32;
+        let mut cap = 0.0f32;
+        let _ = ctx.run_ui(RawInput::default(), |ui| {
+            cap = max_composer_height(ui) + 3.0 * ui.spacing().item_spacing.y;
+            let before = ui.min_rect().bottom();
+            let _ = Composer::new(&mut text).show(ui);
+            height = ui.min_rect().bottom() - before;
+        });
+        assert!(
+            height <= cap + 1.0,
+            "composer grew to {height} px (cap {cap})"
+        );
+        assert!(height > 0.0);
+    }
+
+    #[test]
+    fn the_height_estimate_matches_the_capped_composer() {
+        let ctx = egui::Context::default();
+        for lines in [1usize, 2, MAX_INPUT_ROWS, 40] {
+            let mut text = "x\n".repeat(lines);
+            let mut height = 0.0f32;
+            let mut cap = 0.0f32;
+            let _ = ctx.run_ui(RawInput::default(), |ui| {
+                cap = max_composer_height(ui);
+                let before = ui.min_rect().bottom();
+                let _ = Composer::new(&mut text).show(ui);
+                height = ui.min_rect().bottom() - before;
+            });
+            assert!(
+                height <= cap + 0.5,
+                "{lines} lines needed {height} px, cap is {cap}"
+            );
+        }
     }
 }

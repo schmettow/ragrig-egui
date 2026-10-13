@@ -15,9 +15,10 @@ writing assistant — but it knows nothing about LLMs or RAG.
 |---|---|
 | `dock::SectionDock` | Side panel (left/right) with stacked, collapsible sections and a persisted width |
 | `chat_view::ChatView` | Scrollable transcript of `ChatMessage`s: user/assistant/system bubbles, streaming state, error state, metadata footer (`12 chunks · 3 sources · 8.2 s`) |
-| `composer::Composer` | Multiline input with **Return = newline**, **Ctrl/⌘+Return = submit**, send/stop buttons |
+| `composer::Composer` | Multiline input with **Return = newline**, **Ctrl/⌘+Return = submit**, send/stop buttons; grows to six rows, then scrolls inside |
 | `agent_bar::AgentBar` | One icon per agent component with status dots (grey/green/pulsing/red) and a slide-up menu drawn by the host |
 | `markdown` (feature, default) | Light Markdown rendering for assistant bubbles: emphasis, headings, lists, inline/fenced code, quotes, links |
+| `form` | Setting rows (`setting_row`) and note/warning lines for dense component menus |
 
 ## Quick start
 
@@ -71,18 +72,27 @@ fn agent_pane(
 - **egui-only dependency.** Icons, labels and colors are host-supplied
   (sensible defaults included), so the crate composes with any icon font and
   localization scheme.
+- **Bounded widgets.** Nothing here grows without a limit: bubbles wrap inside
+  the available width, and the composer stops at six rows. Together with the
+  bottom-anchored footer recipe (see `composer::max_composer_height`) that is
+  what keeps a host's layout from being pushed out of its panel by a long
+  message or a multi-line prompt.
 
 ## Roadmap
 
 - **0.1** — dock, chat view, composer, agent bar; streaming and error message
   states; metadata footers; status dot semantics.
-- **0.2** (current) — light Markdown in assistant bubbles (emphasis, headings,
+- **0.2** — light Markdown in assistant bubbles (emphasis, headings,
   lists, inline/fenced code, quotes, links with targets) via `pulldown-cmark`,
   behind the default `markdown` feature; streaming-safe (partial Markdown
   renders without panicking).
-- **0.3** — message actions (copy feedback, retry, delete), clickable links,
-  draggable splitter between dock sections, setting-row helpers.
-- **0.4** — tabbed dock mode for hosts that need more than two panes; theme
+- **0.3.1** (current) — `form` helpers for dense menus (`setting_row`, `note`,
+  `warning`); bounded widgets: the composer grows to six rows then scrolls, and
+  Markdown list items/quotes wrap inside the available width (they used to
+  extend past the bubble and get clipped).
+- **0.4** — message actions (copy feedback, retry, delete), clickable links,
+  draggable splitter between dock sections.
+- **0.5** — tabbed dock mode for hosts that need more than two panes; theme
   presets; publish to crates.io.
 
 ## Compatibility

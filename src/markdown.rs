@@ -256,7 +256,14 @@ pub fn render(ui: &mut Ui, blocks: &[Block]) {
                 let color = ui.visuals().weak_text_color();
                 ui.horizontal_top(|ui| {
                     ui.add_space(8.0);
-                    ui.add(egui::Label::new(job(ui, &block.spans, 13.0, color)).selectable(true));
+                    // A label in a *horizontal* layout extends instead of
+                    // wrapping unless told otherwise — long quotes would run
+                    // out of the bubble (and get clipped by the host).
+                    ui.add(
+                        egui::Label::new(job(ui, &block.spans, 13.0, color))
+                            .selectable(true)
+                            .wrap(),
+                    );
                 });
             }
             BlockKind::ListItem { depth, marker } => {
@@ -272,7 +279,13 @@ pub fn render(ui: &mut Ui, blocks: &[Block]) {
                             .color(ui.visuals().weak_text_color())
                             .size(13.0),
                     ));
-                    ui.add(egui::Label::new(job(ui, &block.spans, 13.0, color)).selectable(true));
+                    // See the quote arm: list items live in a horizontal
+                    // layout, so wrapping must be requested explicitly.
+                    ui.add(
+                        egui::Label::new(job(ui, &block.spans, 13.0, color))
+                            .selectable(true)
+                            .wrap(),
+                    );
                 });
             }
             BlockKind::Paragraph => {
@@ -532,6 +545,40 @@ mod tests {
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
             render(ui, &blocks);
         });
+    }
+
+    #[test]
+    fn rendered_blocks_stay_within_the_available_width() {
+        // Regression: list items and quotes draw inside *horizontal* layouts,
+        // where labels extend instead of wrapping unless asked to wrap. A
+        // long bullet used to demand thousands of pixels in a 300 px column
+        // (and got clipped by the host panel).
+        let ctx = egui::Context::default();
+        let long = "word ".repeat(60);
+        let source = format!(
+            "Intro paragraph with {long}\n\n- bullet with {long}\n- second bullet\n\n> quote with {long}\n\n# Heading with {long}\n"
+        );
+        let mut inner = egui::Rect::NOTHING;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ui.allocate_ui_with_layout(
+                egui::vec2(300.0, 600.0),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| {
+                    render(ui, &parse(&source));
+                    inner = ui.min_rect();
+                },
+            );
+        });
+        assert!(
+            inner.width() <= 301.0,
+            "content overflowed its column: {} px wide in 300 px",
+            inner.width()
+        );
+        assert!(
+            inner.height() > 300.0,
+            "the text must wrap into many lines, got {} px",
+            inner.height()
+        );
     }
 
     #[test]
