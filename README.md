@@ -1,13 +1,33 @@
-# egui_chat
+# ragrig-egui
 
-Reusable chat and agent-panel widgets for [egui](https://github.com/emilk/egui).
+The egui agent interface for [ragrig](https://crates.io/crates/ragrig).
 
-`egui_chat` is a small, dependency-light widget crate for building
-assistant-style side panels: a chat transcript, a composer with conventional
-submit keys, a component status bar, and a dockable panel that hosts them.
-It was extracted from the [sciscraper](https://github.com/schmettow) RAG
-editor, where it drives the "agent pane" for a local retrieval-augmented
-writing assistant — but it knows nothing about LLMs or RAG.
+`ragrig-egui` is the front-end half of a ragrig workspace. Where `ragrig` runs
+the agents, the retrieval and the indexing, this crate gives them a face in an
+[egui](https://github.com/emilk/egui) application: what an agent says, what it
+is doing, which components are up, and where the user types back.
+
+It was extracted from [sciscraper](https://github.com/schmettow), a scientific
+Markdown editor whose agent pane is driven by `ragrig-cli` — and it is shaped
+by that job rather than by chat in general:
+
+- the **transcript** understands retrieval: metadata footers
+  (`12 chunks · 3 sources · 8.2 s`), streaming answers, error states, and a
+  Markdown mode for answers that carry structure;
+- the **agent bar** speaks ragrig's component vocabulary — chat model, memory,
+  embedder, vector store, parsers, chunker: one icon per component with a
+  health dot, and a slide-up menu the host fills with that component's
+  settings;
+- the **composer** follows the convention a terminal or an agent pane trains:
+  **Return = newline**, **Ctrl/⌘+Return = submit**, with send/stop
+  affordances;
+- the **dock** hosts the panes these widgets live in, with the persistence a
+  long-running workspace expects: width, a horizontal collapse to a strip, and
+  an optional close button.
+
+Adopting it stays frictionless: the crate does not link `ragrig` and brings no
+async runtime — `egui` is the only dependency. The host owns the state and its
+worker; the widgets render what it hands them.
 
 ## Widgets
 
@@ -23,10 +43,10 @@ writing assistant — but it knows nothing about LLMs or RAG.
 ## Quick start
 
 ```rust,no_run
-use egui_chat::agent_bar::{AgentBar, Component, ComponentStatus};
-use egui_chat::chat_view::{ChatMessage, ChatView};
-use egui_chat::composer::Composer;
-use egui_chat::dock::{DockSide, SectionDock, SectionState};
+use ragrig_egui::agent_bar::{AgentBar, Component, ComponentStatus};
+use ragrig_egui::chat_view::{ChatMessage, ChatView};
+use ragrig_egui::composer::Composer;
+use ragrig_egui::dock::{DockSide, SectionDock, SectionState};
 
 fn agent_pane(
     ui: &mut egui::Ui,
@@ -67,8 +87,9 @@ fn agent_pane(
 - **Host-owned state.** Widgets borrow their model (messages, input buffer,
   open menu, section state) rather than owning it; the host decides where
   state lives and how it is persisted.
-- **No async, no domain knowledge.** Statuses, messages and tokens travel
-  through the host's own channels; nothing here blocks a frame.
+- **No runtime.** Nothing here blocks a frame, and nothing links `ragrig` or
+  an async runtime: messages, tokens and component statuses travel through the
+  host's own channels, and the widgets render plain data.
 - **egui-only dependency.** Icons, labels and colors are host-supplied
   (sensible defaults included), so the crate composes with any icon font and
   localization scheme.
@@ -90,10 +111,11 @@ fn agent_pane(
   `warning`); bounded widgets: the composer grows to six rows then scrolls, and
   Markdown list items/quotes wrap inside the available width (they used to
   extend past the bubble and get clipped).
-- **0.4.0** (current) — the dock collapses **horizontally**: a collapsed pane
-  becomes a narrow strip at its window edge with one control to expand it
-  again (host-owned flag, reported via `DockResponse::collapsed`). The old
-  per-section fold — headers stacked, bodies hidden — is gone with
+- **0.4.0** (current) — **renamed from `egui_chat` to `ragrig-egui`**: the name
+  now says what the crate is for. Also: the dock collapses **horizontally** — a
+  collapsed pane becomes a narrow strip at its window edge with one control to
+  expand it again (host-owned flag, reported via `DockResponse::collapsed`).
+  The old per-section fold — headers stacked, bodies hidden — is gone with
   `SectionState::collapsed` (breaking).
 - **0.5** — message actions (copy feedback, retry, delete), clickable links,
   draggable splitter between dock sections.
@@ -103,6 +125,8 @@ fn agent_pane(
 ## Compatibility
 
 - `egui` 0.34, Rust 1.92 (edition 2024).
+- 0.4.0 renamed the package (`egui_chat` → `ragrig-egui`); the module paths are
+  unchanged apart from the crate name.
 
 ## License
 

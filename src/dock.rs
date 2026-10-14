@@ -70,7 +70,7 @@ pub struct DockResponse {
 /// A side panel of stacked sections.
 ///
 /// ```no_run
-/// # use egui_chat::dock::{DockSide, SectionDock, SectionState};
+/// # use ragrig_egui::dock::{DockSide, SectionDock, SectionState};
 /// # fn ui(ui: &mut egui::Ui, agent: &mut SectionState, library: &mut SectionState, width: &mut f32, collapsed: &mut bool) {
 /// let response = SectionDock::new("my_dock", DockSide::Right, *width)
 ///     .collapsed(*collapsed)
@@ -109,7 +109,7 @@ impl<'a> SectionDock<'a> {
     /// initial width.
     pub fn new(id_salt: impl std::hash::Hash, side: DockSide, width: f32) -> Self {
         Self {
-            id: Id::new(("egui_chat::dock", id_salt)),
+            id: Id::new(("ragrig_egui::dock", id_salt)),
             side,
             width,
             min_width: 200.0,

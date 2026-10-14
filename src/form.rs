@@ -23,7 +23,7 @@ const LABEL_WIDTH: f32 = 132.0;
 /// that size to `ui.available_width()` fill the remaining space.
 ///
 /// ```
-/// # use egui_chat::form::setting_row;
+/// # use ragrig_egui::form::setting_row;
 /// # fn ui(ui: &mut egui::Ui, model: &mut String) {
 /// setting_row(ui, "Model", |ui| {
 ///     ui.text_edit_singleline(model);

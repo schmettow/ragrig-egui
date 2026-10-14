@@ -11,7 +11,7 @@
 //! can be re-parsed cheaply on every frame.
 //!
 //! ```no_run
-//! # use egui_chat::markdown;
+//! # use ragrig_egui::markdown;
 //! # fn ui(ui: &mut egui::Ui, text: &str) {
 //! markdown::render(ui, &markdown::parse(text));
 //! # }

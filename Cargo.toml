@@ -1,13 +1,13 @@
 [package]
-name = "egui_chat"
+name = "ragrig-egui"
 version = "0.4.0"
 edition = "2024"
 rust-version = "1.92"
-description = "Reusable chat and agent-panel widgets for egui"
+description = "The egui agent interface for the ragrig RAG framework — transcript, composer, component bar and dockable panes"
 license = "MIT"
-repository = "https://github.com/schmettow/egui_chat"
+repository = "https://github.com/schmettow/ragrig-egui"
 readme = "README.md"
-keywords = ["egui", "chat", "widget", "gui", "agent"]
+keywords = ["ragrig", "egui", "agent", "rag", "gui"]
 categories = ["gui"]
 
 [features]

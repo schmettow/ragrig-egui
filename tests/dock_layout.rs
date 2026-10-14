@@ -16,10 +16,10 @@
 use std::cell::RefCell;
 
 use egui::{Pos2, Rect, Vec2};
-use egui_chat::agent_bar::{AgentBar, AgentBarStyle, Component, ComponentStatus};
-use egui_chat::chat_view::{ChatMessage, ChatView};
-use egui_chat::composer::{Composer, max_composer_height};
-use egui_chat::dock::{DockSide, SectionDock, SectionState};
+use ragrig_egui::agent_bar::{AgentBar, AgentBarStyle, Component, ComponentStatus};
+use ragrig_egui::chat_view::{ChatMessage, ChatView};
+use ragrig_egui::composer::{Composer, max_composer_height};
+use ragrig_egui::dock::{DockSide, SectionDock, SectionState};
 
 const MIN_TRANSCRIPT: f32 = 120.0;
 

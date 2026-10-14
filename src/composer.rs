@@ -33,7 +33,7 @@ pub struct ComposerOutput {
 /// Multiline input for chat messages.
 ///
 /// ```no_run
-/// # use egui_chat::composer::Composer;
+/// # use ragrig_egui::composer::Composer;
 /// # fn ui(ui: &mut egui::Ui, input: &mut String, busy: bool) {
 /// let output = Composer::new(input).busy(busy).show(ui);
 /// if output.submitted {
@@ -73,7 +73,7 @@ impl<'a> Composer<'a> {
     /// The stable id of the composer's text field (useful for tests and for
     /// programmatically focusing the input).
     pub fn input_id() -> egui::Id {
-        egui::Id::new("egui_chat::composer::input")
+        egui::Id::new("ragrig_egui::composer::input")
     }
 
     /// Set while a request is running: the stop button shows and submission
@@ -143,7 +143,7 @@ impl<'a> Composer<'a> {
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| {
                     egui::ScrollArea::vertical()
-                        .id_salt("egui_chat::composer::input_scroll")
+                        .id_salt("ragrig_egui::composer::input_scroll")
                         .auto_shrink([false, false])
                         .show(ui, |ui| {
                             ui.add(

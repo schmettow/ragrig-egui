@@ -8,7 +8,7 @@
 //! by the host (activate/deactivate, update, current settings, …).
 //!
 //! ```no_run
-//! # use egui_chat::agent_bar::{AgentBar, Component, ComponentStatus};
+//! # use ragrig_egui::agent_bar::{AgentBar, Component, ComponentStatus};
 //! # fn ui(ui: &mut egui::Ui, open: &mut Option<String>) {
 //! let components = [
 //!     Component::new("chat", "Chat model", "\u{1F4AC}").status(ComponentStatus::Ready),
@@ -197,7 +197,7 @@ impl<'a> AgentBar<'a> {
             let mut is_open = true;
             let mut close_requested = false;
             egui::Popup::from_response(&response)
-                .id(ui.make_persistent_id(("egui_chat::agent_bar", open_id.as_str())))
+                .id(ui.make_persistent_id(("ragrig_egui::agent_bar", open_id.as_str())))
                 .open_bool(&mut is_open)
                 .align(egui::RectAlign::TOP_START)
                 .gap(6.0)
