@@ -7,8 +7,8 @@ the agents, the retrieval and the indexing, this crate gives them a face in an
 [egui](https://github.com/emilk/egui) application: what an agent says, what it
 is doing, which components are up, and where the user types back.
 
-It was extracted from [sciscraper](https://github.com/schmettow), a scientific
-Markdown editor whose agent pane is driven by `ragrig-cli` — and it is shaped
+It is used by [sciscraper](https://github.com/schmettow/sciscraper-rs), a scientific
+Markdown editor whose agent pane is driven by `ragrig` — and it is shaped
 by that job rather than by chat in general:
 
 - the **transcript** understands retrieval: metadata footers
