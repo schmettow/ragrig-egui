@@ -126,6 +126,13 @@ impl ChatMessage {
         self.state = MessageState::Streaming;
         self
     }
+
+    /// Set the lifecycle state — e.g. [`MessageState::Error`] for a system
+    /// note whose text describes a failure.
+    pub fn state(mut self, state: MessageState) -> Self {
+        self.state = state;
+        self
+    }
 }
 
 /// What the user did inside the transcript.
@@ -305,6 +312,9 @@ mod tests {
         assert_eq!(ChatMessage::assistant("a").role, ChatRole::Assistant);
         let streaming = ChatMessage::assistant("a").streaming();
         assert_eq!(streaming.state, MessageState::Streaming);
+        let failure = ChatMessage::system("boom").state(MessageState::Error);
+        assert_eq!(failure.role, ChatRole::System);
+        assert_eq!(failure.state, MessageState::Error);
     }
 
     #[test]
