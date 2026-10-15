@@ -1,14 +1,14 @@
 //! Pending-context chips shown above the composer.
 //!
 //! An agent panel collects context for the next question: the active document,
-//! a marked passage, the bibliography, a regenerated block. [`show`] renders
-//! that collection as a stack of chips — the visible half of the attachment
+//! the bibliography, a marked passage, a regenerated block. [`show`] renders
+//! that collection as rows of chips — the visible half of the attachment
 //! contract (ragrig's `AttachedDocument` is the other one).
 //!
 //! Three kinds cover the workflow:
 //!
 //! - [`Attachment::toggle`] — something that rides along while it is on (the
-//!   document buffer): a selected button, a click flips it,
+//!   document buffer, the library): a selected button, a click flips it,
 //! - [`Attachment::pending`] — context that waits for the next question (a
 //!   marked passage): a ✕ drops it,
 //! - [`Attachment::offer`] — a result the user can accept or drop (the
@@ -22,18 +22,23 @@
 //!
 //! ```no_run
 //! # use ragrig_egui::attachments::{show, Attachment, AttachmentEvent};
-//! # fn ui(ui: &mut egui::Ui, attached: &mut bool) {
-//! let chips = [
-//!     Attachment::toggle("buffer", "P", "draft.md")
-//!         .on(*attached)
-//!         .hint("The active document rides along with every question"),
-//!     Attachment::pending("selection", "S", "Marked region (312 chars)")
-//!         .hint("The marked region rides along with the next question")
-//!         .drop("\u{2715}", "Drop the marked region"),
+//! # fn ui(ui: &mut egui::Ui, attached: &mut bool, library: &mut bool) {
+//! let document = Attachment::toggle("buffer", "P", "draft.md")
+//!     .on(*attached)
+//!     .hint("The active document rides along with every question");
+//! let bibliography = Attachment::toggle("library", "L", "Library")
+//!     .on(*library)
+//!     .hint("The bibliography rides along with every question");
+//! // The two toggles share a row; a pending context gets its own below.
+//! let rows: [&[Attachment]; 2] = [
+//!     &[document, bibliography],
+//!     &[Attachment::pending("selection", "S", "Marked region (312 chars)")
+//!         .drop("\u{2715}", "Drop the marked region")],
 //! ];
-//! if let Some(event) = show(ui, &chips) {
+//! if let Some(event) = show(ui, &rows) {
 //!     match event {
-//!         AttachmentEvent::Toggled(_) => *attached = !*attached,
+//!         AttachmentEvent::Toggled(id) if id == "buffer" => *attached = !*attached,
+//!         AttachmentEvent::Toggled(_) => *library = !*library,
 //!         AttachmentEvent::Dropped(_) => {} // forget the pending context
 //!         AttachmentEvent::Accepted(_) => {} // e.g. insert the offered text
 //!     }
@@ -217,75 +222,85 @@ pub enum AttachmentEvent {
     Accepted(String),
 }
 
-/// Render the chips, one row each, in slice order (top to bottom).
+/// Render the chips grouped into **rows**: the outer slice is top to bottom,
+/// each inner slice is one row, left to right (the document toggle and the
+/// library toggle share a row).
 ///
 /// Returns the interaction of this frame — a single pointer cannot work two
-/// chips at once. An empty slice renders nothing.
-pub fn show(ui: &mut Ui, chips: &[Attachment]) -> Option<AttachmentEvent> {
+/// chips at once. Empty rows render nothing; a row does not wrap (a very long
+/// label runs into the pane's edge, it does not push chips onto a new line).
+pub fn show(ui: &mut Ui, rows: &[&[Attachment]]) -> Option<AttachmentEvent> {
     let mut event = None;
-    for chip in chips {
-        // Each chip gets its own id scope, so a chip appearing or disappearing
-        // (the buffer chip without a document) cannot renumber the others.
-        ui.push_id(chip.id.as_str(), |ui| {
-            if let Some(interaction) = show_chip(ui, chip) {
-                event = Some(interaction);
+    for row in rows {
+        if row.is_empty() {
+            continue;
+        }
+        ui.horizontal(|ui| {
+            for chip in *row {
+                // Each chip gets its own id scope, so a chip appearing or
+                // disappearing (the buffer chip without a document) cannot
+                // renumber the others.
+                ui.push_id(chip.id.as_str(), |ui| {
+                    if let Some(interaction) = show_chip(ui, chip) {
+                        event = Some(interaction);
+                    }
+                });
             }
         });
     }
     event
 }
 
-/// Draw one chip row; returns what the user did with it, if anything.
+/// Draw one chip — a control of the current row — and return what the user
+/// did with it, if anything.
 fn show_chip(ui: &mut Ui, chip: &Attachment) -> Option<AttachmentEvent> {
     let mut event = None;
-    ui.horizontal(|ui| {
-        let text = format!("{} {}", chip.glyph, chip.label);
-        match &chip.kind {
-            AttachmentKind::Toggle { on } => {
-                let response = ui
-                    .add_enabled(chip.enabled, egui::Button::new(text).selected(*on))
-                    .hover_text_if(chip.enabled, &chip.hint);
-                if response.clicked() {
-                    event = Some(AttachmentEvent::Toggled(chip.id.clone()));
-                }
-            }
-            AttachmentKind::Pending {
-                drop_glyph,
-                drop_hint,
-            } => {
-                label(ui, text, chip).hover_text_if(chip.enabled, &chip.hint);
-                if ui
-                    .add_enabled(chip.enabled, egui::Button::new(drop_glyph).small())
-                    .hover_text_if(chip.enabled, drop_hint)
-                    .clicked()
-                {
-                    event = Some(AttachmentEvent::Dropped(chip.id.clone()));
-                }
-            }
-            AttachmentKind::Offer {
-                action,
-                action_hint,
-                drop_glyph,
-                drop_hint,
-            } => {
-                label(ui, text, chip).hover_text_if(chip.enabled, &chip.hint);
-                if ui
-                    .add_enabled(chip.enabled, egui::Button::new(action).small())
-                    .hover_text_if(chip.enabled, action_hint)
-                    .clicked()
-                {
-                    event = Some(AttachmentEvent::Accepted(chip.id.clone()));
-                }
-                if ui
-                    .add_enabled(chip.enabled, egui::Button::new(drop_glyph).small())
-                    .hover_text_if(chip.enabled, drop_hint)
-                    .clicked()
-                {
-                    event = Some(AttachmentEvent::Dropped(chip.id.clone()));
-                }
+    let text = format!("{} {}", chip.glyph, chip.label);
+    match &chip.kind {
+        AttachmentKind::Toggle { on } => {
+            let response = ui
+                .add_enabled(chip.enabled, egui::Button::new(text).selected(*on))
+                .hover_text_if(chip.enabled, &chip.hint);
+            if response.clicked() {
+                event = Some(AttachmentEvent::Toggled(chip.id.clone()));
             }
         }
-    });
+        AttachmentKind::Pending {
+            drop_glyph,
+            drop_hint,
+        } => {
+            label(ui, text, chip).hover_text_if(chip.enabled, &chip.hint);
+            if ui
+                .add_enabled(chip.enabled, egui::Button::new(drop_glyph).small())
+                .hover_text_if(chip.enabled, drop_hint)
+                .clicked()
+            {
+                event = Some(AttachmentEvent::Dropped(chip.id.clone()));
+            }
+        }
+        AttachmentKind::Offer {
+            action,
+            action_hint,
+            drop_glyph,
+            drop_hint,
+        } => {
+            label(ui, text, chip).hover_text_if(chip.enabled, &chip.hint);
+            if ui
+                .add_enabled(chip.enabled, egui::Button::new(action).small())
+                .hover_text_if(chip.enabled, action_hint)
+                .clicked()
+            {
+                event = Some(AttachmentEvent::Accepted(chip.id.clone()));
+            }
+            if ui
+                .add_enabled(chip.enabled, egui::Button::new(drop_glyph).small())
+                .hover_text_if(chip.enabled, drop_hint)
+                .clicked()
+            {
+                event = Some(AttachmentEvent::Dropped(chip.id.clone()));
+            }
+        }
+    }
     event
 }
 
@@ -319,8 +334,9 @@ mod tests {
     use super::*;
     use crate::test_support::leaf_widgets;
 
-    /// Render `chips` and click the `index`-th control of the stack.
-    fn click(ctx: &egui::Context, chips: &[Attachment], index: usize) -> Option<AttachmentEvent> {
+    /// Render `rows` and click the `index`-th control (top-left to
+    /// bottom-right).
+    fn click(ctx: &egui::Context, rows: &[&[Attachment]], index: usize) -> Option<AttachmentEvent> {
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(320.0, 200.0));
         let frame = |events: Vec<egui::Event>| {
             let input = egui::RawInput {
@@ -330,7 +346,7 @@ mod tests {
             };
             let mut event = None;
             let _ = ctx.run_ui(input, |ui| {
-                event = show(ui, chips);
+                event = show(ui, rows);
             });
             event
         };
@@ -351,46 +367,54 @@ mod tests {
     }
 
     #[test]
-    fn a_toggle_chip_reports_its_id() {
+    fn toggles_share_a_row_and_each_reports_its_id() {
+        // The document and library toggles sit next to each other; a pending
+        // context gets its own row below.
         let ctx = egui::Context::default();
-        let chips = [
-            Attachment::toggle("buffer", "P", "draft.md").on(true),
-            Attachment::pending("selection", "S", "Marked region (312 chars)"),
-        ];
+        let document = Attachment::toggle("buffer", "P", "draft.md").on(true);
+        let library = Attachment::toggle("library", "L", "Library");
+        let selection = Attachment::pending("selection", "S", "Marked region (312 chars)");
+        let rows: [&[Attachment]; 2] = [&[document, library], &[selection]];
+
         assert_eq!(
-            click(&ctx, &chips, 0),
+            click(&ctx, &rows, 0),
             Some(AttachmentEvent::Toggled("buffer".into()))
+        );
+        assert_eq!(
+            click(&ctx, &rows, 1),
+            Some(AttachmentEvent::Toggled("library".into())),
+            "the second chip of the row is its own control"
+        );
+        // Row two: the label, then the ✕.
+        assert_eq!(
+            click(&ctx, &rows, 3),
+            Some(AttachmentEvent::Dropped("selection".into()))
         );
     }
 
     #[test]
     fn a_pending_chip_drops() {
         let ctx = egui::Context::default();
-        let chips = [
-            Attachment::pending("selection", "S", "Marked region (312 chars)")
-                .drop("X", "Drop the marked region"),
-        ];
+        let pending = Attachment::pending("selection", "S", "Marked region (312 chars)")
+            .drop("X", "Drop the marked region");
+        let rows: [&[Attachment]; 1] = [&[pending]];
         // The second control of the row is the ✕ (after the label).
         assert_eq!(
-            click(&ctx, &chips, 1),
+            click(&ctx, &rows, 1),
             Some(AttachmentEvent::Dropped("selection".into()))
         );
     }
 
     #[test]
     fn an_offer_chip_accepts_and_drops() {
-        let chips = [Attachment::offer(
-            "insert",
-            "E",
-            "Replacement ready (508 chars)",
-            "Insert",
-        )];
+        let offer = Attachment::offer("insert", "E", "Replacement ready (508 chars)", "Insert");
+        let rows: [&[Attachment]; 1] = [&[offer]];
         assert_eq!(
-            click(&egui::Context::default(), &chips, 1),
+            click(&egui::Context::default(), &rows, 1),
             Some(AttachmentEvent::Accepted("insert".into()))
         );
         assert_eq!(
-            click(&egui::Context::default(), &chips, 2),
+            click(&egui::Context::default(), &rows, 2),
             Some(AttachmentEvent::Dropped("insert".into()))
         );
     }
@@ -398,24 +422,25 @@ mod tests {
     #[test]
     fn a_disabled_chip_does_not_fire() {
         let ctx = egui::Context::default();
-        let chips = [Attachment::toggle("buffer", "P", "untitled")
+        let chip = Attachment::toggle("buffer", "P", "untitled")
             .enabled(false)
-            .hint("This document has no text to attach")];
-        assert_eq!(click(&ctx, &chips, 0), None);
+            .hint("This document has no text to attach");
+        let rows: [&[Attachment]; 1] = [&[chip]];
+        assert_eq!(click(&ctx, &rows, 0), None);
     }
 
     #[test]
     fn chips_render_without_panic() {
         let ctx = egui::Context::default();
-        let chips = [
-            Attachment::toggle("buffer", "P", "draft.md"),
-            Attachment::pending("selection", "S", "Marked region (312 chars)"),
-            Attachment::offer("insert", "E", "Replacement ready (508 chars)", "Insert"),
-        ];
+        let document = Attachment::toggle("buffer", "P", "draft.md");
+        let library = Attachment::toggle("library", "L", "Library");
+        let selection = Attachment::pending("selection", "S", "Marked region (312 chars)");
+        let offer = Attachment::offer("insert", "E", "Replacement ready (508 chars)", "Insert");
+        let rows: [&[Attachment]; 3] = [&[document, library], &[selection, offer], &[]];
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
-            assert!(show(ui, &chips).is_none());
+            assert!(show(ui, &rows).is_none());
         });
-        let none: Vec<Attachment> = Vec::new();
+        let none: [&[Attachment]; 0] = [];
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
             assert!(show(ui, &none).is_none());
         });

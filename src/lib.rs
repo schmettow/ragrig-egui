@@ -87,6 +87,8 @@ mod test_support {
                 .partial_cmp(&(b.min.y, b.min.x, b.max.y, b.max.x))
                 .unwrap()
         });
+        // A chip's id scope and its only control can share one rect.
+        rects.dedup();
         rects
     }
 

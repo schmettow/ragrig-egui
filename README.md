@@ -35,8 +35,8 @@ worker; the widgets render what it hands them.
 |---|---|
 | `dock::SectionDock` | Side panel (left/right) with stacked sections, a persisted width, and a **horizontal** collapse to a narrow strip |
 | `chat_view::ChatView` | Scrollable transcript of `ChatMessage`s: user/assistant/system bubbles, streaming state, error state, metadata footer (`12 chunks · 3 sources · 8.2 s`) |
-| `composer::Composer` | Multiline input with **Return = newline**, **Ctrl/⌘+Return = submit**, send/stop buttons; grows to six rows, then scrolls inside |
-| `attachments` | Pending-context chips above the composer: a **toggle** (the document buffer, the bibliography), a **pending** context with a ✕, and an **offer** with an action button |
+| `composer::Composer` | Multiline input with **Return = newline**, **Ctrl/⌘+Return = submit**, send/stop buttons; grows to six rows, then scrolls inside. `composer::append` routes picked text *into* the prompt (keeps focus, caret after the text) |
+| `attachments` | Pending-context chips above the composer, grouped into rows: **toggles** (the document buffer, the bibliography), a **pending** context with a ✕, and an **offer** with an action button |
 | `sessions::SessionRow` | Conversation picker: *New*, a dropdown of saved sessions, and a refresh action |
 | `agent_bar::AgentBar` | One icon per agent component with status dots (grey/green/pulsing/red) and a slide-up menu drawn by the host |
 | `markdown` (feature, default) | Light Markdown rendering for assistant bubbles: emphasis, headings, lists, inline/fenced code, quotes, links |
@@ -121,10 +121,12 @@ fn agent_pane(
   `SectionState::collapsed` (breaking).
 - **0.5.0** (current) — the **workflow widgets** a ragrig panel needs around
   the composer, adopted from the sciscraper host where they were prototyped:
-  `attachments` (pending-context chips: toggle/pending/offer, disabled chips
-  explain themselves in their tooltip) and `sessions` (the conversation picker
-  with host-localized labels and a busy state). The host keeps the state and
-  the labels; the crate renders and reports.
+  `attachments` (pending-context chips: toggle/pending/offer, **grouped into
+  rows** so two toggles share a line, disabled chips explain themselves in
+  their tooltip), `sessions` (the conversation picker with host-localized
+  labels and a busy state) and `composer::append` (route picked text *into*
+  the prompt — focus and caret after it). The host keeps the state and the
+  labels; the crate renders and reports.
 - **0.6** — message actions (copy feedback, retry, delete), clickable links,
   draggable splitter between dock sections; index housekeeping controls
   (*Update*/*Rebuild* + index state note) and a source-list widget with

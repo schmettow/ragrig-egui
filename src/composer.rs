@@ -9,6 +9,10 @@
 //! The [`Composer`] borrows the host's input buffer and reports what
 //! happened in [`ComposerOutput`]; it never clears the buffer itself, so the
 //! host stays in control (e.g. keep the text when sending fails).
+//!
+//! [`append`] is the other direction: the host puts text *into* the prompt
+//! (a citation the author picked, a retry of the last question) and the
+//! composer keeps its focus and its caret after it.
 
 use egui::{Key, Modifiers, RichText, Ui};
 
@@ -202,6 +206,37 @@ pub fn max_composer_height(ui: &Ui) -> f32 {
     input_height(ui, MAX_INPUT_ROWS) + composer_chrome(ui)
 }
 
+/// Append `text` to the composer's buffer and put the caret after it.
+///
+/// Hosts use this to route an action *into* the prompt while it is active —
+/// e.g. a citation the author picked from a source list lands in the chat,
+/// not in the document, while the input holds the keyboard. The composer is
+/// focused again, so the next keystroke continues after the appended text;
+/// a separating space is inserted when the buffer does not end in whitespace.
+///
+/// ```no_run
+/// # use ragrig_egui::composer;
+/// # fn pick(ctx: &egui::Context, input: &mut String) {
+/// composer::append(ctx, input, "@Smith2021");
+/// # }
+/// ```
+pub fn append(ctx: &egui::Context, input: &mut String, text: &str) {
+    if text.is_empty() {
+        return;
+    }
+    if !input.is_empty() && !input.ends_with(char::is_whitespace) {
+        input.push(' ');
+    }
+    input.push_str(text);
+    let after = egui::text::CCursor::new(input.chars().count());
+    let mut state = egui::TextEdit::load_state(ctx, Composer::input_id()).unwrap_or_default();
+    state
+        .cursor
+        .set_char_range(Some(egui::text::CCursorRange::one(after)));
+    egui::TextEdit::store_state(ctx, Composer::input_id(), state);
+    ctx.memory_mut(|memory| memory.request_focus(Composer::input_id()));
+}
+
 /// The Send/Stop row plus the spacing around it.
 fn composer_chrome(ui: &Ui) -> f32 {
     ui.spacing().interact_size.y + 2.0 * ui.spacing().item_spacing.y
@@ -318,5 +353,37 @@ mod tests {
                 "{lines} lines needed {height} px, cap is {cap}"
             );
         }
+    }
+
+    #[test]
+    fn append_adds_a_separator_and_puts_the_caret_after_the_text() {
+        let ctx = egui::Context::default();
+        let mut input = String::from("compare with");
+        append(&ctx, &mut input, "@Smith2021");
+        assert_eq!(input, "compare with @Smith2021");
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(Composer::input_id()),
+            "the prompt keeps the keyboard"
+        );
+        let state = egui::TextEdit::load_state(&ctx, Composer::input_id()).expect("caret stored");
+        assert_eq!(
+            state.cursor.char_range().map(|range| range.primary.index),
+            Some(input.chars().count()),
+            "the next keystroke continues after the citation"
+        );
+
+        // No separator before an empty buffer, none after whitespace.
+        let mut empty = String::new();
+        append(&ctx, &mut empty, "@a");
+        assert_eq!(empty, "@a");
+        let mut spaced = String::from("see ");
+        append(&ctx, &mut spaced, "@b");
+        assert_eq!(spaced, "see @b");
+
+        // Nothing to append, nothing changes.
+        let mut untouched = String::from("keep");
+        append(&ctx, &mut untouched, "");
+        assert_eq!(untouched, "keep");
     }
 }
